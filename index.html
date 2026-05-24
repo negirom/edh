@@ -28,15 +28,14 @@
     #crest.visible { opacity: 1; }
     #crest.pulse   { transform: scale(1.04); }
 
-    /* タップゾーン3分割（透明） */
     #zone-left, #zone-center, #zone-right {
       position: fixed;
       top: 0;
       height: 100%;
     }
-    #zone-left   { left: 0;    width: 20%; cursor: pointer; }
-    #zone-center { left: 20%;  width: 60%; cursor: pointer; }
-    #zone-right  { right: 0;   width: 20%; cursor: pointer; }
+    #zone-left   { left: 0;   width: 20%; cursor: pointer; }
+    #zone-center { left: 20%; width: 60%; cursor: pointer; }
+    #zone-right  { right: 0;  width: 20%; cursor: pointer; }
 
     #tap-msg {
       position: fixed;
@@ -58,7 +57,6 @@
 <body>
 
   <img id="crest" src="maruni_mitsuba_aoi_720x1280.jpg" alt="丸に三つ葉葵">
-  <audio id="bgm" src="shogun_bgm.mp3" loop></audio>
   <p id="tap-msg">画面をタップして音楽を再生</p>
 
   <div id="zone-left"></div>
@@ -66,44 +64,118 @@
   <div id="zone-right"></div>
 
   <script>
-    const img    = document.getElementById('crest');
-    const audio  = document.getElementById('bgm');
-    const msg    = document.getElementById('tap-msg');
-    const zoneL  = document.getElementById('zone-left');
-    const zoneC  = document.getElementById('zone-center');
-    const zoneR  = document.getElementById('zone-right');
+    const img   = document.getElementById('crest');
+    const msg   = document.getElementById('tap-msg');
+    const zoneL = document.getElementById('zone-left');
+    const zoneC = document.getElementById('zone-center');
+    const zoneR = document.getElementById('zone-right');
 
-    // SE（後発優先：毎回 new Audio で即時生成）
+    // AudioContext
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // バッファキャッシュ
+    const buffers = {};
+
+    async function loadBuffer(url) {
+      if (buffers[url]) return buffers[url];
+      const res  = await fetch(url);
+      const data = await res.arrayBuffer();
+      const buf  = await ctx.decodeAudioData(data);
+      buffers[url] = buf;
+      return buf;
+    }
+
+    // SE再生（後発優先：毎回新しいSourceNode）
     const seFiles = {
       right: ['se_kin1.mp3',   'se_kin2.mp3'],
       left:  ['se_zashu1.mp3', 'se_zashu2.mp3'],
     };
     const seIndex = { right: 0, left: 0 };
+    const seNodes = { right: null, left: null };
 
-    function playSE(direction) {
+    async function playSE(direction) {
       const files = seFiles[direction];
       const idx   = seIndex[direction];
-      const se    = new Audio(files[idx]);
-      se.play();
+      const buf   = await loadBuffer(files[idx]);
+
+      // 前のSEが鳴っていたら止める
+      if (seNodes[direction]) {
+        try { seNodes[direction].stop(); } catch(e) {}
+      }
+
+      const source = ctx.createBufferSource();
+      source.buffer = buf;
+      source.connect(ctx.destination);
+      source.start(0);
+      seNodes[direction] = source;
+
       seIndex[direction] = (idx + 1) % files.length;
     }
 
-    // フェードイン
-    window.addEventListener('load', () => {
-      img.classList.add('visible');
-    });
+    // BGM管理
+    let bgmBuffer = null;
+    let bgmSource = null;
+    let bgmOffset = 0;
+    let bgmStartTime = 0;
+    let bgmPlaying = false;
 
-    // BGM 自動再生
-    function tryPlay() {
-      audio.play().then(() => {
-        msg.classList.remove('visible');
-      }).catch(() => {
-        msg.classList.add('visible');
-      });
+    async function loadBGM() {
+      bgmBuffer = await loadBuffer('shogun_bgm.mp3');
     }
-    window.addEventListener('load', tryPlay);
 
-    // パルスアニメ
+    function startBGM() {
+      if (!bgmBuffer || bgmPlaying) return;
+      bgmSource = ctx.createBufferSource();
+      bgmSource.buffer = bgmBuffer;
+      bgmSource.loop = true;
+      bgmSource.connect(ctx.destination);
+      bgmSource.start(0, bgmOffset % bgmBuffer.duration);
+      bgmStartTime = ctx.currentTime;
+      bgmPlaying = true;
+      msg.classList.remove('visible');
+    }
+
+    function stopBGM() {
+      if (!bgmPlaying) return;
+      bgmOffset = (bgmOffset + ctx.currentTime - bgmStartTime) % bgmBuffer.duration;
+      try { bgmSource.stop(); } catch(e) {}
+      bgmPlaying = false;
+      msg.classList.add('visible');
+    }
+
+    function toggleBGM() {
+      if (ctx.state === 'suspended') ctx.resume();
+      if (bgmPlaying) {
+        bgmOffset = 0; // 頭出し
+        stopBGM();
+      } else {
+        bgmOffset = 0; // 頭から再生
+        startBGM();
+      }
+    }
+
+    // 初期化：ファイル読み込み
+    async function init() {
+      img.classList.add('visible');
+      await Promise.all([
+        loadBGM(),
+        loadBuffer('se_kin1.mp3'),
+        loadBuffer('se_kin2.mp3'),
+        loadBuffer('se_zashu1.mp3'),
+        loadBuffer('se_zashu2.mp3'),
+      ]);
+
+      // 自動再生トライ
+      if (ctx.state === 'suspended') {
+        msg.classList.add('visible');
+      } else {
+        startBGM();
+      }
+    }
+
+    window.addEventListener('load', init);
+
+    // パルス
     function pulse() {
       img.classList.add('pulse');
       setTimeout(() => img.classList.remove('pulse'), 150);
@@ -111,25 +183,20 @@
 
     // 中央：BGMトグル
     zoneC.addEventListener('click', () => {
+      if (ctx.state === 'suspended') ctx.resume().then(() => { bgmOffset = 0; startBGM(); });
+      else toggleBGM();
       pulse();
-      if (audio.paused) {
-        audio.currentTime = 0;
-        audio.play();
-        msg.classList.remove('visible');
-      } else {
-        audio.pause();
-        audio.currentTime = 0;
-        msg.classList.add('visible');
-      }
     });
 
     // 左：zashu
     zoneL.addEventListener('click', () => {
+      if (ctx.state === 'suspended') ctx.resume();
       playSE('left');
     });
 
     // 右：kin
     zoneR.addEventListener('click', () => {
+      if (ctx.state === 'suspended') ctx.resume();
       playSE('right');
     });
   </script>
