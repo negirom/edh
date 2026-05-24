@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>葵</title>
+  <title>殿が戦に出たとき再生する</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -74,8 +74,12 @@
     window.addEventListener('load', tryPlay);
 
     document.body.addEventListener('click', () => {
-      audio.play();
-      msg.classList.remove('visible');
+      if (audio.paused) {
+        audio.play();
+        msg.classList.remove('visible');
+      } else {
+        audio.pause();
+      }
     });
   </script>
 
