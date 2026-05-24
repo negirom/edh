@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>殿が戦に出たとき再生する</title>
+  <title>殿が場に出るたび再生する</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -75,10 +75,13 @@
 
     document.body.addEventListener('click', () => {
       if (audio.paused) {
+        audio.currentTime = 0;
         audio.play();
         msg.classList.remove('visible');
       } else {
         audio.pause();
+        audio.currentTime = 0;
+        msg.classList.add('visible');
       }
     });
   </script>
