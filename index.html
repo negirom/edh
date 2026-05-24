@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>殿が場に出るたび再生する</title>
+  <title>殿が場に出るたび、それを再生する</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -22,11 +22,15 @@
       max-height: 100vh;
       object-fit: contain;
       opacity: 0;
-      transition: opacity 1.8s ease;
+      transition: opacity 1.8s ease, transform 0.15s ease;
     }
 
     #crest.visible {
       opacity: 1;
+    }
+
+    #crest.pulse {
+      transform: scale(1.04);
     }
 
     #tap-msg {
@@ -73,7 +77,13 @@
 
     window.addEventListener('load', tryPlay);
 
+    function pulse() {
+      img.classList.add('pulse');
+      setTimeout(() => img.classList.remove('pulse'), 150);
+    }
+
     document.body.addEventListener('click', () => {
+      pulse();
       if (audio.paused) {
         audio.currentTime = 0;
         audio.play();
