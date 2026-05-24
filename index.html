@@ -70,10 +70,8 @@
     const zoneC = document.getElementById('zone-center');
     const zoneR = document.getElementById('zone-right');
 
-    // AudioContext
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // バッファキャッシュ
     const buffers = {};
 
     async function loadBuffer(url) {
@@ -85,39 +83,30 @@
       return buf;
     }
 
-    // SE再生（後発優先：毎回新しいSourceNode）
+    // SE再生（止めない・重ねる）
     const seFiles = {
       right: ['se_kin1.mp3',   'se_kin2.mp3'],
       left:  ['se_zashu1.mp3', 'se_zashu2.mp3'],
     };
     const seIndex = { right: 0, left: 0 };
-    const seNodes = { right: null, left: null };
 
     async function playSE(direction) {
-      const files = seFiles[direction];
-      const idx   = seIndex[direction];
-      const buf   = await loadBuffer(files[idx]);
-
-      // 前のSEが鳴っていたら止める
-      if (seNodes[direction]) {
-        try { seNodes[direction].stop(); } catch(e) {}
-      }
-
+      const files  = seFiles[direction];
+      const idx    = seIndex[direction];
+      const buf    = await loadBuffer(files[idx]);
       const source = ctx.createBufferSource();
       source.buffer = buf;
       source.connect(ctx.destination);
       source.start(0);
-      seNodes[direction] = source;
-
       seIndex[direction] = (idx + 1) % files.length;
     }
 
     // BGM管理
-    let bgmBuffer = null;
-    let bgmSource = null;
-    let bgmOffset = 0;
+    let bgmBuffer   = null;
+    let bgmSource   = null;
+    let bgmOffset   = 0;
     let bgmStartTime = 0;
-    let bgmPlaying = false;
+    let bgmPlaying  = false;
 
     async function loadBGM() {
       bgmBuffer = await loadBuffer('shogun_bgm.mp3');
@@ -146,15 +135,14 @@
     function toggleBGM() {
       if (ctx.state === 'suspended') ctx.resume();
       if (bgmPlaying) {
-        bgmOffset = 0; // 頭出し
+        bgmOffset = 0;
         stopBGM();
       } else {
-        bgmOffset = 0; // 頭から再生
+        bgmOffset = 0;
         startBGM();
       }
     }
 
-    // 初期化：ファイル読み込み
     async function init() {
       img.classList.add('visible');
       await Promise.all([
@@ -165,7 +153,6 @@
         loadBuffer('se_zashu2.mp3'),
       ]);
 
-      // 自動再生トライ
       if (ctx.state === 'suspended') {
         msg.classList.add('visible');
       } else {
@@ -175,26 +162,22 @@
 
     window.addEventListener('load', init);
 
-    // パルス
     function pulse() {
       img.classList.add('pulse');
       setTimeout(() => img.classList.remove('pulse'), 150);
     }
 
-    // 中央：BGMトグル
     zoneC.addEventListener('click', () => {
       if (ctx.state === 'suspended') ctx.resume().then(() => { bgmOffset = 0; startBGM(); });
       else toggleBGM();
       pulse();
     });
 
-    // 左：zashu
     zoneL.addEventListener('click', () => {
       if (ctx.state === 'suspended') ctx.resume();
       playSE('left');
     });
 
-    // 右：kin
     zoneR.addEventListener('click', () => {
       if (ctx.state === 'suspended') ctx.resume();
       playSE('right');
