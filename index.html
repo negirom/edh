@@ -14,7 +14,6 @@
       align-items: center;
       height: 100vh;
       overflow: hidden;
-      cursor: pointer;
     }
 
     #crest {
@@ -23,10 +22,21 @@
       object-fit: contain;
       opacity: 0;
       transition: opacity 1.8s ease, transform 0.15s ease;
+      pointer-events: none;
     }
 
     #crest.visible { opacity: 1; }
     #crest.pulse   { transform: scale(1.04); }
+
+    /* タップゾーン3分割（透明） */
+    #zone-left, #zone-center, #zone-right {
+      position: fixed;
+      top: 0;
+      height: 100%;
+    }
+    #zone-left   { left: 0;    width: 20%; cursor: pointer; }
+    #zone-center { left: 20%;  width: 60%; cursor: pointer; }
+    #zone-right  { right: 0;   width: 20%; cursor: pointer; }
 
     #tap-msg {
       position: fixed;
@@ -51,12 +61,19 @@
   <audio id="bgm" src="shogun_bgm.mp3" loop></audio>
   <p id="tap-msg">画面をタップして音楽を再生</p>
 
-  <script>
-    const img   = document.getElementById('crest');
-    const audio = document.getElementById('bgm');
-    const msg   = document.getElementById('tap-msg');
+  <div id="zone-left"></div>
+  <div id="zone-center"></div>
+  <div id="zone-right"></div>
 
-    // SE 定義（後発優先のため毎回 new Audio で即時生成）
+  <script>
+    const img    = document.getElementById('crest');
+    const audio  = document.getElementById('bgm');
+    const msg    = document.getElementById('tap-msg');
+    const zoneL  = document.getElementById('zone-left');
+    const zoneC  = document.getElementById('zone-center');
+    const zoneR  = document.getElementById('zone-right');
+
+    // SE（後発優先：毎回 new Audio で即時生成）
     const seFiles = {
       right: ['se_kin1.mp3',   'se_kin2.mp3'],
       left:  ['se_zashu1.mp3', 'se_zashu2.mp3'],
@@ -92,44 +109,8 @@
       setTimeout(() => img.classList.remove('pulse'), 150);
     }
 
-    // タップ／フリック判定
-    const FLICK_THRESHOLD = 30; // px：これ以上横に動いたらフリックと判定
-    let startX = 0;
-    let startY = 0;
-    let moved  = false;
-
-    document.body.addEventListener('touchstart', (e) => {
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      moved  = false;
-    }, { passive: true });
-
-    document.body.addEventListener('touchend', (e) => {
-      const dx = e.changedTouches[0].clientX - startX;
-      const dy = e.changedTouches[0].clientY - startY;
-
-      if (Math.abs(dx) > FLICK_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
-        // フリック
-        moved = true;
-        playSE(dx > 0 ? 'right' : 'left');
-      } else if (!moved) {
-        // タップ
-        pulse();
-        if (audio.paused) {
-          audio.currentTime = 0;
-          audio.play();
-          msg.classList.remove('visible');
-        } else {
-          audio.pause();
-          audio.currentTime = 0;
-          msg.classList.add('visible');
-        }
-      }
-    });
-
-    // マウスクリック（PC確認用）
-    document.body.addEventListener('click', (e) => {
-      if (moved) { moved = false; return; }
+    // 中央：BGMトグル
+    zoneC.addEventListener('click', () => {
       pulse();
       if (audio.paused) {
         audio.currentTime = 0;
@@ -140,6 +121,16 @@
         audio.currentTime = 0;
         msg.classList.add('visible');
       }
+    });
+
+    // 左：zashu
+    zoneL.addEventListener('click', () => {
+      playSE('left');
+    });
+
+    // 右：kin
+    zoneR.addEventListener('click', () => {
+      playSE('right');
     });
   </script>
 
