@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>殿が場に出るたび、それを再生する</title>
+  <title>殿が場にでるたび、これを再生する。</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -25,13 +25,8 @@
       transition: opacity 1.8s ease, transform 0.15s ease;
     }
 
-    #crest.visible {
-      opacity: 1;
-    }
-
-    #crest.pulse {
-      transform: scale(1.04);
-    }
+    #crest.visible { opacity: 1; }
+    #crest.pulse   { transform: scale(1.04); }
 
     #tap-msg {
       position: fixed;
@@ -47,9 +42,7 @@
       pointer-events: none;
     }
 
-    #tap-msg.visible {
-      opacity: 1;
-    }
+    #tap-msg.visible { opacity: 1; }
   </style>
 </head>
 <body>
@@ -63,10 +56,27 @@
     const audio = document.getElementById('bgm');
     const msg   = document.getElementById('tap-msg');
 
+    // SE 定義（後発優先のため毎回 new Audio で即時生成）
+    const seFiles = {
+      right: ['se_kin1.mp3',   'se_kin2.mp3'],
+      left:  ['se_zashu1.mp3', 'se_zashu2.mp3'],
+    };
+    const seIndex = { right: 0, left: 0 };
+
+    function playSE(direction) {
+      const files = seFiles[direction];
+      const idx   = seIndex[direction];
+      const se    = new Audio(files[idx]);
+      se.play();
+      seIndex[direction] = (idx + 1) % files.length;
+    }
+
+    // フェードイン
     window.addEventListener('load', () => {
       img.classList.add('visible');
     });
 
+    // BGM 自動再生
     function tryPlay() {
       audio.play().then(() => {
         msg.classList.remove('visible');
@@ -74,15 +84,52 @@
         msg.classList.add('visible');
       });
     }
-
     window.addEventListener('load', tryPlay);
 
+    // パルスアニメ
     function pulse() {
       img.classList.add('pulse');
       setTimeout(() => img.classList.remove('pulse'), 150);
     }
 
-    document.body.addEventListener('click', () => {
+    // タップ／フリック判定
+    const FLICK_THRESHOLD = 30; // px：これ以上横に動いたらフリックと判定
+    let startX = 0;
+    let startY = 0;
+    let moved  = false;
+
+    document.body.addEventListener('touchstart', (e) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      moved  = false;
+    }, { passive: true });
+
+    document.body.addEventListener('touchend', (e) => {
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+
+      if (Math.abs(dx) > FLICK_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
+        // フリック
+        moved = true;
+        playSE(dx > 0 ? 'right' : 'left');
+      } else if (!moved) {
+        // タップ
+        pulse();
+        if (audio.paused) {
+          audio.currentTime = 0;
+          audio.play();
+          msg.classList.remove('visible');
+        } else {
+          audio.pause();
+          audio.currentTime = 0;
+          msg.classList.add('visible');
+        }
+      }
+    });
+
+    // マウスクリック（PC確認用）
+    document.body.addEventListener('click', (e) => {
+      if (moved) { moved = false; return; }
       pulse();
       if (audio.paused) {
         audio.currentTime = 0;
