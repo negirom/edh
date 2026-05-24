@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Page</title>
+  <title>葵</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
       background: #000;
       display: flex;
@@ -13,16 +14,70 @@
       align-items: center;
       height: 100vh;
       overflow: hidden;
+      cursor: pointer;
     }
-    img {
+
+    #crest {
       max-width: 100%;
       max-height: 100vh;
       object-fit: contain;
+      opacity: 0;
+      transition: opacity 1.8s ease;
+    }
+
+    #crest.visible {
+      opacity: 1;
+    }
+
+    #tap-msg {
+      position: fixed;
+      bottom: 2em;
+      width: 100%;
+      text-align: center;
+      color: rgba(200, 170, 80, 0.7);
+      font-size: 0.85rem;
+      letter-spacing: 0.2em;
+      font-family: serif;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+      pointer-events: none;
+    }
+
+    #tap-msg.visible {
+      opacity: 1;
     }
   </style>
 </head>
 <body>
-  <img src="maruni_mituba_aoi_720x1280.jpg" alt="">
-  <audio src="shogun_bgm.mp3" autoplay loop></audio>
+
+  <img id="crest" src="maruni_mitsuba_aoi_720x1280.jpg" alt="丸に三つ葉葵">
+  <audio id="bgm" src="shogun_bgm.mp3" loop></audio>
+  <p id="tap-msg">画面をタップして音楽を再生</p>
+
+  <script>
+    const img   = document.getElementById('crest');
+    const audio = document.getElementById('bgm');
+    const msg   = document.getElementById('tap-msg');
+
+    window.addEventListener('load', () => {
+      img.classList.add('visible');
+    });
+
+    function tryPlay() {
+      audio.play().then(() => {
+        msg.classList.remove('visible');
+      }).catch(() => {
+        msg.classList.add('visible');
+      });
+    }
+
+    window.addEventListener('load', tryPlay);
+
+    document.body.addEventListener('click', () => {
+      audio.play();
+      msg.classList.remove('visible');
+    });
+  </script>
+
 </body>
 </html>
