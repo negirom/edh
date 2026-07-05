@@ -181,19 +181,8 @@
     }
 
     await tempCtx.close();
-    showDebugStatus();
   }
   preloadAudio();
-
-  // 開発者ツールなしでも実機で読み込み状況を確認できるよう、簡易デバッグ表示を出す
-  function showDebugStatus() {
-    const debugEl = document.createElement('div');
-    debugEl.style.cssText = 'position:fixed;top:5%;left:6%;color:rgba(212,175,55,0.4);font-family:monospace;font-size:2.8vw;letter-spacing:0.05em;z-index:100;';
-    debugEl.textContent = `BGM:${bgmBuffer ? 'OK' : 'NG'} SE:${seBuffer ? 'OK' : 'NG'}`;
-    document.getElementById('stage').appendChild(debugEl);
-    // 5秒表示して自動的に消える（本番でずっと出しっぱなしにしないため）
-    setTimeout(() => debugEl.remove(), 5000);
-  }
 
   function ensureAudioContext() {
     if (!audioCtx) {
