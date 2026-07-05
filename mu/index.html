@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>戦場に出たとき、これを再生する。</title>
+<title>不可視の眼、これを開く。</title>
 <style>
   html, body {
     margin: 0;
@@ -88,6 +88,49 @@
 
   #status.visible {
     opacity: 1;
+  }
+
+  .ufo {
+    position: fixed;
+    top: var(--ufo-top, 30%);
+    z-index: 10;
+    pointer-events: none;
+    will-change: transform;
+  }
+
+  .ufo img {
+    display: block;
+    width: 28vw;
+    height: auto;
+    filter: drop-shadow(0 0 14px rgba(212, 175, 55, 0.85))
+            drop-shadow(0 0 28px rgba(180, 255, 180, 0.45));
+  }
+
+  .ufo.fly-right {
+    left: -30vw;
+    animation: fly-right 2.6s linear forwards;
+  }
+
+  .ufo.fly-left {
+    right: -30vw;
+    animation: fly-left 2.6s linear forwards;
+  }
+
+  /* 右へ飛ぶ機体はそのまま、左へ飛ぶ機体は左右反転させて進行方向を向かせる */
+  .ufo.fly-left img {
+    transform: scaleX(-1);
+  }
+
+  @keyframes fly-right {
+    0%   { transform: translateX(0) translateY(0) rotate(0deg); }
+    50%  { transform: translateX(60vw) translateY(-6vh) rotate(3deg); }
+    100% { transform: translateX(140vw) translateY(0) rotate(0deg); }
+  }
+
+  @keyframes fly-left {
+    0%   { transform: translateX(0) translateY(0) rotate(0deg); }
+    50%  { transform: translateX(-60vw) translateY(-6vh) rotate(-3deg); }
+    100% { transform: translateX(-140vw) translateY(0) rotate(0deg); }
   }
 </style>
 </head>
@@ -190,10 +233,40 @@
     started = true;
   }
 
-  document.getElementById('stage').addEventListener('click', () => {
+  function spawnUfo(direction) {
+    // direction: 'right' = 左端から出て右へ / 'left' = 右端から出て左へ
+    const ufo = document.createElement('div');
+    ufo.className = `ufo fly-${direction}`;
+    ufo.style.setProperty('--ufo-top', `${20 + Math.random() * 30}%`);
+
+    const img = document.createElement('img');
+    img.src = 'ufo.png';
+    img.alt = '';
+    ufo.appendChild(img);
+
+    document.getElementById('stage').appendChild(ufo);
+    ufo.addEventListener('animationend', () => ufo.remove());
+  }
+
+  document.getElementById('stage').addEventListener('click', (e) => {
     if (!started) {
       beginExperience();
+      return;
+    }
+
+    const x = e.clientX;
+    const w = window.innerWidth;
+    const leftZone = w * 0.35;
+    const rightZone = w * 0.65;
+
+    if (x < leftZone) {
+      // 左側タップ → 右端から出て左へ飛んでいく
+      spawnUfo('left');
+    } else if (x > rightZone) {
+      // 右側タップ → 左端から出て右へ飛んでいく
+      spawnUfo('right');
     } else {
+      // 中央タップ → BGM ON/OFF
       toggleBgm();
     }
   }, { passive: true });
