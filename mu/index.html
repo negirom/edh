@@ -159,27 +159,41 @@
 
   // --- 音声の事前ロード（AudioContextはユーザー操作後に生成/resumeする） ---
   async function preloadAudio() {
+    const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // BGMとSEを個別に読み込む。片方が失敗してももう片方は動くようにする。
     try {
-      const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-      const [bgmRes, seRes] = await Promise.all([
-        fetch('bgm.wav'),
-        fetch('ufo_se.mp3')
-      ]);
-      const [bgmArrayBuf, seArrayBuf] = await Promise.all([
-        bgmRes.arrayBuffer(),
-        seRes.arrayBuffer()
-      ]);
-
-      bgmBuffer = await tempCtx.decodeAudioData(bgmArrayBuf);
-      seBuffer = await tempCtx.decodeAudioData(seArrayBuf);
-
-      await tempCtx.close();
+      const res = await fetch('bgm.wav');
+      if (!res.ok) throw new Error(`bgm.wav fetch failed: ${res.status}`);
+      const arrayBuf = await res.arrayBuffer();
+      bgmBuffer = await tempCtx.decodeAudioData(arrayBuf);
     } catch (err) {
-      console.error('Audio preload failed:', err);
+      console.error('BGM preload failed:', err);
     }
+
+    try {
+      const res = await fetch('ufo_se.wav');
+      if (!res.ok) throw new Error(`ufo_se.wav fetch failed: ${res.status}`);
+      const arrayBuf = await res.arrayBuffer();
+      seBuffer = await tempCtx.decodeAudioData(arrayBuf);
+    } catch (err) {
+      console.error('SE preload failed:', err);
+    }
+
+    await tempCtx.close();
+    showDebugStatus();
   }
   preloadAudio();
+
+  // 開発者ツールなしでも実機で読み込み状況を確認できるよう、簡易デバッグ表示を出す
+  function showDebugStatus() {
+    const debugEl = document.createElement('div');
+    debugEl.style.cssText = 'position:fixed;top:5%;left:6%;color:rgba(212,175,55,0.4);font-family:monospace;font-size:2.8vw;letter-spacing:0.05em;z-index:100;';
+    debugEl.textContent = `BGM:${bgmBuffer ? 'OK' : 'NG'} SE:${seBuffer ? 'OK' : 'NG'}`;
+    document.getElementById('stage').appendChild(debugEl);
+    // 5秒表示して自動的に消える（本番でずっと出しっぱなしにしないため）
+    setTimeout(() => debugEl.remove(), 5000);
+  }
 
   function ensureAudioContext() {
     if (!audioCtx) {
