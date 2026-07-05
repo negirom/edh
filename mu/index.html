@@ -124,13 +124,13 @@
   @keyframes fly-right {
     0%   { transform: translateX(0) translateY(0) rotate(0deg); }
     50%  { transform: translateX(60vw) translateY(-6vh) rotate(3deg); }
-    100% { transform: translateX(140vw) translateY(0) rotate(0deg); }
+    100% { transform: translateX(180vw) translateY(0) rotate(0deg); }
   }
 
   @keyframes fly-left {
     0%   { transform: translateX(0) translateY(0) rotate(0deg); }
     50%  { transform: translateX(-60vw) translateY(-6vh) rotate(-3deg); }
-    100% { transform: translateX(-140vw) translateY(0) rotate(0deg); }
+    100% { transform: translateX(-180vw) translateY(0) rotate(0deg); }
   }
 </style>
 </head>
@@ -152,6 +152,7 @@
   let bgmBuffer = null;
   let bgmSource = null;
   let gainNode = null;
+  let seBuffer = null;
 
   let started = false;   // 初回タップで画像フェードイン + BGM再生 済みか
   let isPlaying = false;
@@ -159,14 +160,23 @@
   // --- 音声の事前ロード（AudioContextはユーザー操作後に生成/resumeする） ---
   async function preloadAudio() {
     try {
-      const res = await fetch('bgm.wav');
-      const arrayBuf = await res.arrayBuffer();
-      // AudioContextが無ければ一時的に作ってデコードのみ行う
       const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
-      bgmBuffer = await tempCtx.decodeAudioData(arrayBuf);
+
+      const [bgmRes, seRes] = await Promise.all([
+        fetch('bgm.wav'),
+        fetch('ufo_se.mp3')
+      ]);
+      const [bgmArrayBuf, seArrayBuf] = await Promise.all([
+        bgmRes.arrayBuffer(),
+        seRes.arrayBuffer()
+      ]);
+
+      bgmBuffer = await tempCtx.decodeAudioData(bgmArrayBuf);
+      seBuffer = await tempCtx.decodeAudioData(seArrayBuf);
+
       await tempCtx.close();
     } catch (err) {
-      console.error('BGM preload failed:', err);
+      console.error('Audio preload failed:', err);
     }
   }
   preloadAudio();
@@ -233,6 +243,35 @@
     started = true;
   }
 
+  const UFO_FLIGHT_DURATION = 2.6; // CSSアニメーションのdurationと合わせる（秒）
+
+  function playUfoSe() {
+    if (!seBuffer) return null;
+    ensureAudioContext();
+
+    const seSource = audioCtx.createBufferSource();
+    seSource.buffer = seBuffer;
+    seSource.loop = true;
+
+    const seGain = audioCtx.createGain();
+    seSource.connect(seGain);
+    seGain.connect(audioCtx.destination);
+
+    const now = audioCtx.currentTime;
+    const peakTime = now + UFO_FLIGHT_DURATION * 0.5; // 山の頂点＝画面中央付近＝最大音量
+    const endTime = now + UFO_FLIGHT_DURATION;
+
+    // 遠くから近づいて→最接近で最大音量→遠ざかって消えていく音量カーブ
+    seGain.gain.setValueAtTime(0.0001, now);
+    seGain.gain.linearRampToValueAtTime(1.4, peakTime);
+    seGain.gain.linearRampToValueAtTime(0.0001, endTime);
+
+    seSource.start(now);
+    seSource.stop(endTime + 0.05);
+
+    return { seSource, seGain };
+  }
+
   function spawnUfo(direction) {
     // direction: 'right' = 左端から出て右へ / 'left' = 右端から出て左へ
     const ufo = document.createElement('div');
@@ -245,7 +284,18 @@
     ufo.appendChild(img);
 
     document.getElementById('stage').appendChild(ufo);
-    ufo.addEventListener('animationend', () => ufo.remove());
+
+    const seNodes = playUfoSe();
+
+    ufo.addEventListener('animationend', () => {
+      ufo.remove();
+      // 万一SEが残っていたら片付ける（通常はstop()で自然終了する）
+      if (seNodes) {
+        try { seNodes.seSource.stop(); } catch (e) {}
+        seNodes.seSource.disconnect();
+        seNodes.seGain.disconnect();
+      }
+    });
   }
 
   document.getElementById('stage').addEventListener('click', (e) => {
